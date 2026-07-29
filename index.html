@@ -45,7 +45,8 @@
     <h2>AI 初判</h2>
     <p class="ai-status">输入火山方舟 API Key 和推理接入点 ID 后，可对当前照片和记录特征做一次 AI 初判。密钥只在本机浏览器使用，不会写入 GitHub。</p>
     <label><span>火山方舟 API Key</span><input id="apiKey" type="password" placeholder="在火山方舟控制台复制 API Key"></label>
-    <label><span>推理接入点 ID / 模型</span><input id="model" placeholder="如：ep-xxxxxxxx，或视觉模型 ID"></label>
+    <label><span>推理接入点 ID / 模型</span><input id="model" placeholder="填 ep- 开头的接入点 ID，不要填 apikey-..."></label>
+    <p class="ai-status">提示：API Key 填在上面；这里要填火山方舟“推理接入点”里的 ID，通常是 <b>ep-...</b> 开头。</p>
     <label class="inline"><input id="rememberKey" type="checkbox"><span>只在本机记住火山方舟 API Key</span></label>
     <button class="secondary" id="aiCheck">开始 AI 初判</button>
     <div id="aiStatus" class="ai-status"></div>
@@ -74,6 +75,7 @@
     if(!image){$("aiStatus").textContent="请先拍照或从相册上传一张菌类照片。";return}
     if(!key){$("aiStatus").textContent="请先填写火山方舟 API Key。";return}
     if(!model){$("aiStatus").textContent="请先填写火山方舟推理接入点 ID，通常是 ep- 开头。";return}
+    if(model.startsWith("apikey-")){$("aiStatus").textContent="这里不能填 apikey-...。请到火山方舟“推理接入点”页面复制 ep-... 开头的接入点 ID。";return}
     if($("rememberKey").checked)localStorage.setItem("volc-ark-api-key",key);else localStorage.removeItem("volc-ark-api-key");
     $("aiCheck").disabled=true;$("aiCheck").textContent="AI 初判中...";$("aiStatus").textContent="正在把照片和记录特征发送给火山方舟分析。";
     try{
