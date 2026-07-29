@@ -16,11 +16,13 @@
     label{display:grid;gap:6px;margin:10px 0}label span{font-size:13px;color:var(--muted)}
     input,select,textarea{width:100%;min-height:44px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--text);padding:10px 12px;font:inherit}
     textarea{min-height:84px;resize:vertical}button{width:100%;min-height:48px;border:0;border-radius:8px;background:var(--green);color:white;font-weight:700;font-size:16px}
+    button.secondary{background:#24473a}button:disabled{opacity:.6}.inline{display:flex;gap:10px;align-items:center}.inline input[type=checkbox]{width:auto;min-height:auto}
     .warn{background:#fff3ef;border-color:#efc7bd}.warn strong{color:var(--red)}.warn p{margin:6px 0 0;line-height:1.5;color:#6f352c}
     h2{font-size:19px;margin:0 0 10px}.candidate{border-top:1px solid var(--line);padding:11px 0}.candidate:first-of-type{border-top:0}
     .row{display:flex;justify-content:space-between;gap:10px;align-items:start}.risk{border-radius:999px;background:#e9efe6;color:#1f5b44;padding:4px 9px;font-size:12px;font-weight:700;white-space:nowrap}.danger{background:#ffe1d9;color:var(--red)}
     meter{width:100%;height:9px}.candidate p,.record p{margin:5px 0 0;color:var(--muted);font-size:14px;line-height:1.45}
     .record{display:grid;grid-template-columns:56px 1fr;gap:10px;align-items:center;border-top:1px solid var(--line);padding:10px 0}.record:first-of-type{border-top:0}.record img,.ph{width:56px;height:56px;border-radius:8px;background:#e9efe6;object-fit:cover}
+    .ai-status{margin:8px 0 0;color:var(--muted);font-size:14px;line-height:1.5}.ai-json{white-space:pre-wrap;background:#f3f5ef;border:1px solid var(--line);border-radius:8px;padding:10px;color:#26342c;font-size:14px;line-height:1.5}
   </style>
 </head>
 <body>
@@ -39,12 +41,23 @@
     <label><span>补充记录</span><textarea id="note" placeholder="伴生树种、断面变色、是否有乳汁、数量等"></textarea></label>
     <button id="save">保存这条记录</button>
   </section>
+  <section class="box">
+    <h2>AI 初判</h2>
+    <p class="ai-status">输入 OpenAI API Key 后，可对当前照片和记录特征做一次 AI 初判。密钥只在本机浏览器使用，不会写入 GitHub。</p>
+    <label><span>OpenAI API Key</span><input id="apiKey" type="password" placeholder="sk-..."></label>
+    <label><span>模型</span><input id="model" value="gpt-5" placeholder="如：gpt-5"></label>
+    <label class="inline"><input id="rememberKey" type="checkbox"><span>只在本机记住 API Key</span></label>
+    <button class="secondary" id="aiCheck">开始 AI 初判</button>
+    <div id="aiStatus" class="ai-status"></div>
+    <div id="aiResult"></div>
+  </section>
   <section class="card"><h2>当前候选</h2><div id="candidates"></div></section>
   <section class="card"><h2>本机记录 <span id="count" class="sub"></span></h2><div id="records"></div></section>
 </main>
 <script>
-  const $=id=>document.getElementById(id);let image="";let records=JSON.parse(localStorage.getItem("fungi-records-static")||"[]");
+  const $=id=>document.getElementById(id);let image="";let aiText="";let records=JSON.parse(localStorage.getItem("fungi-records-static")||"[]");
   const fields=["place","habitat","cap","underside","stipe","spore","smell","note"];
+  const savedKey=localStorage.getItem("openai-api-key")||"";if(savedKey){$("apiKey").value=savedKey;$("rememberKey").checked=true}
   function candidates(){const t=fields.map(id=>$(id).value).join(" ");return[
     ["鹅膏菌属候选","分类提示：鹅膏菌属",/菌托|有菌环|白色/.test(t)?74:32,"高风险","出现菌环、菌托或白色伞菌特征时，必须排除鹅膏菌属毒菌。"],
     ["牛肝菌类候选","分类提示：牛肝菌类",/菌孔|网纹|褐色|针阔混交/.test(t)?68:28,"需复核","菌盖下方为孔状结构时，常见于牛肝菌类，但仍需观察变色和气味。"],
@@ -52,10 +65,30 @@
     ["多孔菌类候选","分类提示：多孔菌类",/枯木|菌孔|半球形/.test(t)?62:22,"低风险","生于枯木且具有孔状子实层时，常见于多孔菌类。"]
   ].sort((a,b)=>b[2]-a[2]).slice(0,3)}
   function bindImageInput(){const input=$("imageInput"); if(!input)return; input.addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{image=reader.result;$("photoBox").innerHTML='<img src="'+image+'" alt="已上传照片"><input id="imageInput" type="file" accept="image/*" capture="environment">';bindImageInput();};reader.readAsDataURL(f)})}
-  function render(){const cs=candidates();$("candidates").innerHTML=cs.map(c=>'<article class="candidate"><div class="row"><div><b>'+c[0]+'</b><p>'+c[1]+'</p></div><span class="risk '+(c[3]==="高风险"?"danger":"")+'">'+c[3]+'</span></div><meter min="0" max="100" value="'+c[2]+'"></meter><p>'+c[4]+'</p></article>').join("");$("count").textContent=records.length+" 条";$("records").innerHTML=records.length?records.map(r=>'<article class="record">'+(r.image?'<img src="'+r.image+'" alt="">':'<div class="ph"></div>')+'<div><b>'+(r.place||"未填写地点")+'</b><p>'+r.date+" / "+r.habitat+" / "+r.top+'</p></div></article>').join(""):"<p class='sub'>还没有保存记录。</p>"}
+  function render(){const cs=candidates();$("candidates").innerHTML=cs.map(c=>'<article class="candidate"><div class="row"><div><b>'+c[0]+'</b><p>'+c[1]+'</p></div><span class="risk '+(c[3]==="高风险"?"danger":"")+'">'+c[3]+'</span></div><meter min="0" max="100" value="'+c[2]+'"></meter><p>'+c[4]+'</p></article>').join("");$("count").textContent=records.length+" 条";$("records").innerHTML=records.length?records.map(r=>'<article class="record">'+(r.image?'<img src="'+r.image+'" alt="">':'<div class="ph"></div>')+'<div><b>'+(r.place||"未填写地点")+'</b><p>'+r.date+" / "+r.habitat+" / "+r.top+'</p>'+(r.ai?'<p>AI：'+escapeHtml(r.ai.split("\\n")[0])+'</p>':'')+'</div></article>').join(""):"<p class='sub'>还没有保存记录。</p>"}
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+  function formText(){return "地点："+$("place").value+"；生境："+$("habitat").value+"；菌盖："+$("cap").value+"；下表面："+$("underside").value+"；菌柄："+$("stipe").value+"；孢子印："+$("spore").value+"；气味："+$("smell").value+"；补充记录："+$("note").value}
+  function showAi(text){aiText=text;$("aiResult").innerHTML='<pre class="ai-json">'+escapeHtml(text)+'</pre>'}
+  async function runAiCheck(){
+    const key=$("apiKey").value.trim(), model=($("model").value.trim()||"gpt-5");
+    if(!image){$("aiStatus").textContent="请先拍照或从相册上传一张菌类照片。";return}
+    if(!key){$("aiStatus").textContent="请先填写 OpenAI API Key。";return}
+    if($("rememberKey").checked)localStorage.setItem("openai-api-key",key);else localStorage.removeItem("openai-api-key");
+    $("aiCheck").disabled=true;$("aiCheck").textContent="AI 初判中...";$("aiStatus").textContent="正在把照片和记录特征发送给 OpenAI 分析。";
+    try{
+      const prompt="你是菌物野外调查辅助工具。请根据照片和文字特征做初步分类建议，必须用中文回答。不要判断可食用，不要给食用建议。请按以下格式输出：\\n1. 初步候选：列出3个可能类群或属名，说明依据。\\n2. 风险提示：指出需要排除的高风险毒菌类群。\\n3. 还需补拍：列出需要补充的照片角度和观察项。\\n4. 专家复核要点：列出复核时应记录的信息。\\n\\n当前记录："+formText();
+      const res=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify({model,input:[{role:"user",content:[{type:"input_text",text:prompt},{type:"input_image",image_url:image}]}]})});
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error?.message||"OpenAI API 请求失败");
+      const text=data.output_text||data.output?.flatMap(o=>o.content||[]).map(c=>c.text||"").join("\\n")||"没有返回可读结果。";
+      showAi(text);$("aiStatus").textContent="AI 初判完成。结果只能作为记录辅助，不能作为食用判断。";
+    }catch(err){$("aiStatus").textContent="AI 初判失败："+err.message+"。如果提示浏览器跨域或网络失败，就需要下一步加后端服务。"}
+    finally{$("aiCheck").disabled=false;$("aiCheck").textContent="开始 AI 初判"}
+  }
   bindImageInput();
   fields.forEach(id=>$(id).addEventListener("input",render));
-  $("save").addEventListener("click",()=>{const cs=candidates();records=[{image,date:new Date().toISOString().slice(0,10),place:$("place").value,habitat:$("habitat").value,top:cs[0][0]},...records].slice(0,50);localStorage.setItem("fungi-records-static",JSON.stringify(records));$("save").textContent="已保存";setTimeout(()=>$("save").textContent="保存这条记录",1500);render()});
+  $("aiCheck").addEventListener("click",runAiCheck);
+  $("save").addEventListener("click",()=>{const cs=candidates();records=[{image,ai:aiText,date:new Date().toISOString().slice(0,10),place:$("place").value,habitat:$("habitat").value,top:cs[0][0]},...records].slice(0,50);localStorage.setItem("fungi-records-static",JSON.stringify(records));$("save").textContent="已保存";setTimeout(()=>$("save").textContent="保存这条记录",1500);render()});
   render();
 </script>
 </body>
