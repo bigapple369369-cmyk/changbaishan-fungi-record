@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>长白山菌类识别记录</title>
+  <style>
+    :root{--bg:#f6f7f2;--text:#1f2a24;--muted:#69736b;--line:#d9ded4;--green:#2f7d5d;--red:#b74432;--panel:#fff}
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#f7f7f1,#eef3ea);color:var(--text);font-family:Arial,"PingFang SC","Microsoft YaHei",sans-serif}
+    main{max-width:760px;margin:0 auto;padding:14px 12px 28px}header{display:flex;gap:12px;align-items:center;margin:8px 0 14px}
+    .mark{display:grid;place-items:center;width:48px;height:48px;border-radius:8px;background:var(--green);color:white;font-weight:700}
+    h1{margin:0;font-size:26px;line-height:1.1}.sub{margin:4px 0 0;color:var(--muted);font-size:13px}
+    .box,.card{background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:8px;padding:14px;margin:12px 0}
+    .photo{position:relative;display:grid;place-items:center;min-height:235px;overflow:hidden;background:repeating-linear-gradient(135deg,#f4f0e8 0 14px,#ece8dc 14px 28px);cursor:pointer;text-align:center}
+    .photo img{width:100%;height:100%;max-height:380px;object-fit:cover}.photo input{position:absolute;inset:0;opacity:0}.photo small{display:block;color:var(--muted);margin-top:8px}
+    label{display:grid;gap:6px;margin:10px 0}label span{font-size:13px;color:var(--muted)}
+    input,select,textarea{width:100%;min-height:44px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--text);padding:10px 12px;font:inherit}
+    textarea{min-height:84px;resize:vertical}button{width:100%;min-height:48px;border:0;border-radius:8px;background:var(--green);color:white;font-weight:700;font-size:16px}
+    .warn{background:#fff3ef;border-color:#efc7bd}.warn strong{color:var(--red)}.warn p{margin:6px 0 0;line-height:1.5;color:#6f352c}
+    h2{font-size:19px;margin:0 0 10px}.candidate{border-top:1px solid var(--line);padding:11px 0}.candidate:first-of-type{border-top:0}
+    .row{display:flex;justify-content:space-between;gap:10px;align-items:start}.risk{border-radius:999px;background:#e9efe6;color:#1f5b44;padding:4px 9px;font-size:12px;font-weight:700;white-space:nowrap}.danger{background:#ffe1d9;color:var(--red)}
+    meter{width:100%;height:9px}.candidate p,.record p{margin:5px 0 0;color:var(--muted);font-size:14px;line-height:1.45}
+    .record{display:grid;grid-template-columns:56px 1fr;gap:10px;align-items:center;border-top:1px solid var(--line);padding:10px 0}.record:first-of-type{border-top:0}.record img,.ph{width:56px;height:56px;border-radius:8px;background:#e9efe6;object-fit:cover}
+  </style>
+</head>
+<body>
+<main>
+  <header><div class="mark">菌记</div><div><h1>长白山菌类识别记录</h1><p class="sub">拍照、初判、留档、复核</p></div></header>
+  <section class="box warn"><strong>安全提示</strong><p>本工具仅供科普和记录。任何菌类都不能凭照片或 AI 结果判断可食用。</p></section>
+  <label class="box photo" id="photoBox"><span><b>拍照或上传菌类照片</b><small>照片只保存在本机浏览器</small></span><input id="imageInput" type="file" accept="image/*" capture="environment"></label>
+  <section class="box">
+    <label><span>地点</span><input id="place" placeholder="如：长白山北坡阔叶林"></label>
+    <label><span>生境</span><select id="habitat"><option>阔叶林</option><option>针阔混交林</option><option>针叶林</option><option>草地</option><option>枯木</option><option>腐殖土</option><option>树根附近</option></select></label>
+    <label><span>菌盖</span><select id="cap"><option>褐色</option><option>白色</option><option>黄色</option><option>红色</option><option>灰色</option><option>黏滑</option><option>鳞片</option><option>伞形</option><option>半球形</option></select></label>
+    <label><span>下表面</span><select id="underside"><option>菌褶</option><option>菌孔</option><option>菌齿</option><option>光滑</option><option>未知</option></select></label>
+    <label><span>菌柄</span><select id="stipe"><option>有菌环</option><option>有菌托</option><option>中空</option><option>实心</option><option>网纹</option><option>无明显特征</option></select></label>
+    <label><span>孢子印</span><select id="spore"><option>未测</option><option>白色</option><option>褐色</option><option>黑色</option><option>粉色</option></select></label>
+    <label><span>气味</span><input id="smell" placeholder="如：无明显气味、杏仁味、刺激味"></label>
+    <label><span>补充记录</span><textarea id="note" placeholder="伴生树种、断面变色、是否有乳汁、数量等"></textarea></label>
+    <button id="save">保存这条记录</button>
+  </section>
+  <section class="card"><h2>当前候选</h2><div id="candidates"></div></section>
+  <section class="card"><h2>本机记录 <span id="count" class="sub"></span></h2><div id="records"></div></section>
+</main>
+<script>
+  const $=id=>document.getElementById(id);let image="";let records=JSON.parse(localStorage.getItem("fungi-records-static")||"[]");
+  const fields=["place","habitat","cap","underside","stipe","spore","smell","note"];
+  function candidates(){const t=fields.map(id=>$(id).value).join(" ");return[
+    ["鹅膏菌属候选","分类提示：鹅膏菌属",/菌托|有菌环|白色/.test(t)?74:32,"高风险","出现菌环、菌托或白色伞菌特征时，必须排除鹅膏菌属毒菌。"],
+    ["牛肝菌类候选","分类提示：牛肝菌类",/菌孔|网纹|褐色|针阔混交/.test(t)?68:28,"需复核","菌盖下方为孔状结构时，常见于牛肝菌类，但仍需观察变色和气味。"],
+    ["乳菇/红菇类候选","分类提示：红菇科",/菌褶|白色|红色|阔叶林/.test(t)?58:24,"需复核","林下菌褶类且菌肉脆裂时可考虑红菇科，需要补充断面和乳汁信息。"],
+    ["多孔菌类候选","分类提示：多孔菌类",/枯木|菌孔|半球形/.test(t)?62:22,"低风险","生于枯木且具有孔状子实层时，常见于多孔菌类。"]
+  ].sort((a,b)=>b[2]-a[2]).slice(0,3)}
+  function bindImageInput(){const input=$("imageInput"); if(!input)return; input.addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{image=reader.result;$("photoBox").innerHTML='<img src="'+image+'" alt="已上传照片"><input id="imageInput" type="file" accept="image/*" capture="environment">';bindImageInput();};reader.readAsDataURL(f)})}
+  function render(){const cs=candidates();$("candidates").innerHTML=cs.map(c=>'<article class="candidate"><div class="row"><div><b>'+c[0]+'</b><p>'+c[1]+'</p></div><span class="risk '+(c[3]==="高风险"?"danger":"")+'">'+c[3]+'</span></div><meter min="0" max="100" value="'+c[2]+'"></meter><p>'+c[4]+'</p></article>').join("");$("count").textContent=records.length+" 条";$("records").innerHTML=records.length?records.map(r=>'<article class="record">'+(r.image?'<img src="'+r.image+'" alt="">':'<div class="ph"></div>')+'<div><b>'+(r.place||"未填写地点")+'</b><p>'+r.date+" / "+r.habitat+" / "+r.top+'</p></div></article>').join(""):"<p class='sub'>还没有保存记录。</p>"}
+  bindImageInput();
+  fields.forEach(id=>$(id).addEventListener("input",render));
+  $("save").addEventListener("click",()=>{const cs=candidates();records=[{image,date:new Date().toISOString().slice(0,10),place:$("place").value,habitat:$("habitat").value,top:cs[0][0]},...records].slice(0,50);localStorage.setItem("fungi-records-static",JSON.stringify(records));$("save").textContent="已保存";setTimeout(()=>$("save").textContent="保存这条记录",1500);render()});
+  render();
+</script>
+</body>
+</html>
