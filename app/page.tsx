@@ -36,28 +36,28 @@ function scoreCandidates(form: Omit<RecordItem, "id" | "image" | "candidates">):
   const rules: Candidate[] = [
     {
       name: "鹅膏菌属候选",
-      group: "Amanita",
+      group: "分类提示：鹅膏菌属",
       confidence: /菌托|有菌环|白色/.test(text) ? 74 : 32,
       risk: "高风险",
       reason: "出现菌环、菌托或白色伞菌特征时，必须排除鹅膏菌属毒菌。",
     },
     {
       name: "牛肝菌类候选",
-      group: "Boletales",
+      group: "分类提示：牛肝菌类",
       confidence: /菌孔|网纹|褐色|针阔混交/.test(text) ? 68 : 28,
       risk: "需复核",
       reason: "菌盖下方为孔状结构时，常见于牛肝菌类，但仍需观察变色和气味。",
     },
     {
       name: "乳菇/红菇类候选",
-      group: "Russulaceae",
+      group: "分类提示：红菇科",
       confidence: /菌褶|白色|红色|阔叶林/.test(text) ? 58 : 24,
       risk: "需复核",
       reason: "林下菌褶类且菌肉脆裂时可考虑红菇科，需要补充断面和乳汁信息。",
     },
     {
       name: "多孔菌类候选",
-      group: "Polyporales",
+      group: "分类提示：多孔菌类",
       confidence: /枯木|菌孔|半球形/.test(text) ? 62 : 22,
       risk: "低风险",
       reason: "生于枯木且具有孔状子实层时，常见于多孔菌类。",
@@ -134,7 +134,7 @@ export default function Home() {
     <main className="app-shell">
       <section className="capture-panel" aria-label="菌类拍照识别">
         <div className="brand-row">
-          <span className="brand-mark">CB</span>
+          <span className="brand-mark">菌记</span>
           <div>
             <p className="eyebrow">长白山菌类识别记录</p>
             <h1>拍照、初判、留档、复核</h1>

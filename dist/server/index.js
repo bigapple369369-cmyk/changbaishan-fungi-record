@@ -1,4 +1,4 @@
-<!doctype html>
+const html = String.raw`<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -51,11 +51,22 @@
     ["乳菇/红菇类候选","分类提示：红菇科",/菌褶|白色|红色|阔叶林/.test(t)?58:24,"需复核","林下菌褶类且菌肉脆裂时可考虑红菇科，需要补充断面和乳汁信息。"],
     ["多孔菌类候选","分类提示：多孔菌类",/枯木|菌孔|半球形/.test(t)?62:22,"低风险","生于枯木且具有孔状子实层时，常见于多孔菌类。"]
   ].sort((a,b)=>b[2]-a[2]).slice(0,3)}
-  function render(){const cs=candidates();$("candidates").innerHTML=cs.map(c=>`<article class="candidate"><div class="row"><div><b>${c[0]}</b><p>${c[1]}</p></div><span class="risk ${c[3]==="高风险"?"danger":""}">${c[3]}</span></div><meter min="0" max="100" value="${c[2]}"></meter><p>${c[4]}</p></article>`).join("");$("count").textContent=`${records.length} 条`;$("records").innerHTML=records.length?records.map(r=>`<article class="record">${r.image?`<img src="${r.image}" alt="">`:`<div class="ph"></div>`}<div><b>${r.place||"未填写地点"}</b><p>${r.date} / ${r.habitat} / ${r.top}</p></div></article>`).join(""):"<p class='sub'>还没有保存记录。</p>"}
-  $("imageInput").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{image=reader.result;$("photoBox").innerHTML=`<img src="${image}" alt="已上传照片"><input id="imageInput" type="file" accept="image/*" capture="environment">`;};reader.readAsDataURL(f)});
+  function render(){const cs=candidates();$("candidates").innerHTML=cs.map(c=>'<article class="candidate"><div class="row"><div><b>'+c[0]+'</b><p>'+c[1]+'</p></div><span class="risk '+(c[3]==="高风险"?"danger":"")+'">'+c[3]+'</span></div><meter min="0" max="100" value="'+c[2]+'"></meter><p>'+c[4]+'</p></article>').join("");$("count").textContent=records.length+" 条";$("records").innerHTML=records.length?records.map(r=>'<article class="record">'+(r.image?'<img src="'+r.image+'" alt="">':'<div class="ph"></div>')+'<div><b>'+(r.place||"未填写地点")+'</b><p>'+r.date+" / "+r.habitat+" / "+r.top+'</p></div></article>').join(""):"<p class='sub'>还没有保存记录。</p>"}
+  $("imageInput").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{image=reader.result;$("photoBox").innerHTML='<img src="'+image+'" alt="已上传照片"><input id="imageInput" type="file" accept="image/*" capture="environment">';};reader.readAsDataURL(f)});
   fields.forEach(id=>$(id).addEventListener("input",render));
   $("save").addEventListener("click",()=>{const cs=candidates();records=[{image,date:new Date().toISOString().slice(0,10),place:$("place").value,habitat:$("habitat").value,top:cs[0][0]},...records].slice(0,50);localStorage.setItem("fungi-records-static",JSON.stringify(records));$("save").textContent="已保存";setTimeout(()=>$("save").textContent="保存这条记录",1500);render()});
   render();
 </script>
 </body>
-</html>
+</html>`;
+
+export default {
+  async fetch() {
+    return new Response(html, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "public, max-age=60",
+      },
+    });
+  },
+};
