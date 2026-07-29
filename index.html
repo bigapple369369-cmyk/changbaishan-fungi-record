@@ -43,10 +43,10 @@
   </section>
   <section class="box">
     <h2>AI 初判</h2>
-    <p class="ai-status">输入 OpenAI API Key 后，可对当前照片和记录特征做一次 AI 初判。密钥只在本机浏览器使用，不会写入 GitHub。</p>
-    <label><span>OpenAI API Key</span><input id="apiKey" type="password" placeholder="sk-..."></label>
-    <label><span>模型</span><input id="model" value="gpt-5" placeholder="如：gpt-5"></label>
-    <label class="inline"><input id="rememberKey" type="checkbox"><span>只在本机记住 API Key</span></label>
+    <p class="ai-status">输入火山方舟 API Key 和推理接入点 ID 后，可对当前照片和记录特征做一次 AI 初判。密钥只在本机浏览器使用，不会写入 GitHub。</p>
+    <label><span>火山方舟 API Key</span><input id="apiKey" type="password" placeholder="在火山方舟控制台复制 API Key"></label>
+    <label><span>推理接入点 ID / 模型</span><input id="model" placeholder="如：ep-xxxxxxxx，或视觉模型 ID"></label>
+    <label class="inline"><input id="rememberKey" type="checkbox"><span>只在本机记住火山方舟 API Key</span></label>
     <button class="secondary" id="aiCheck">开始 AI 初判</button>
     <div id="aiStatus" class="ai-status"></div>
     <div id="aiResult"></div>
@@ -57,7 +57,7 @@
 <script>
   const $=id=>document.getElementById(id);let image="";let aiText="";let records=JSON.parse(localStorage.getItem("fungi-records-static")||"[]");
   const fields=["place","habitat","cap","underside","stipe","spore","smell","note"];
-  const savedKey=localStorage.getItem("openai-api-key")||"";if(savedKey){$("apiKey").value=savedKey;$("rememberKey").checked=true}
+  const savedKey=localStorage.getItem("volc-ark-api-key")||"";if(savedKey){$("apiKey").value=savedKey;$("rememberKey").checked=true}
   function candidates(){const t=fields.map(id=>$(id).value).join(" ");return[
     ["鹅膏菌属候选","分类提示：鹅膏菌属",/菌托|有菌环|白色/.test(t)?74:32,"高风险","出现菌环、菌托或白色伞菌特征时，必须排除鹅膏菌属毒菌。"],
     ["牛肝菌类候选","分类提示：牛肝菌类",/菌孔|网纹|褐色|针阔混交/.test(t)?68:28,"需复核","菌盖下方为孔状结构时，常见于牛肝菌类，但仍需观察变色和气味。"],
@@ -70,19 +70,20 @@
   function formText(){return "地点："+$("place").value+"；生境："+$("habitat").value+"；菌盖："+$("cap").value+"；下表面："+$("underside").value+"；菌柄："+$("stipe").value+"；孢子印："+$("spore").value+"；气味："+$("smell").value+"；补充记录："+$("note").value}
   function showAi(text){aiText=text;$("aiResult").innerHTML='<pre class="ai-json">'+escapeHtml(text)+'</pre>'}
   async function runAiCheck(){
-    const key=$("apiKey").value.trim(), model=($("model").value.trim()||"gpt-5");
+    const key=$("apiKey").value.trim(), model=$("model").value.trim();
     if(!image){$("aiStatus").textContent="请先拍照或从相册上传一张菌类照片。";return}
-    if(!key){$("aiStatus").textContent="请先填写 OpenAI API Key。";return}
-    if($("rememberKey").checked)localStorage.setItem("openai-api-key",key);else localStorage.removeItem("openai-api-key");
-    $("aiCheck").disabled=true;$("aiCheck").textContent="AI 初判中...";$("aiStatus").textContent="正在把照片和记录特征发送给 OpenAI 分析。";
+    if(!key){$("aiStatus").textContent="请先填写火山方舟 API Key。";return}
+    if(!model){$("aiStatus").textContent="请先填写火山方舟推理接入点 ID，通常是 ep- 开头。";return}
+    if($("rememberKey").checked)localStorage.setItem("volc-ark-api-key",key);else localStorage.removeItem("volc-ark-api-key");
+    $("aiCheck").disabled=true;$("aiCheck").textContent="AI 初判中...";$("aiStatus").textContent="正在把照片和记录特征发送给火山方舟分析。";
     try{
       const prompt="你是菌物野外调查辅助工具。请根据照片和文字特征做初步分类建议，必须用中文回答。不要判断可食用，不要给食用建议。请按以下格式输出：\\n1. 初步候选：列出3个可能类群或属名，说明依据。\\n2. 风险提示：指出需要排除的高风险毒菌类群。\\n3. 还需补拍：列出需要补充的照片角度和观察项。\\n4. 专家复核要点：列出复核时应记录的信息。\\n\\n当前记录："+formText();
-      const res=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify({model,input:[{role:"user",content:[{type:"input_text",text:prompt},{type:"input_image",image_url:image}]}]})});
+      const res=await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify({model,messages:[{role:"user",content:[{type:"text",text:prompt},{type:"image_url",image_url:{url:image}}]}],temperature:0.2})});
       const data=await res.json();
-      if(!res.ok)throw new Error(data.error?.message||"OpenAI API 请求失败");
-      const text=data.output_text||data.output?.flatMap(o=>o.content||[]).map(c=>c.text||"").join("\\n")||"没有返回可读结果。";
+      if(!res.ok)throw new Error(data.error?.message||data.message||"火山方舟 API 请求失败");
+      const text=data.choices?.[0]?.message?.content||"没有返回可读结果。";
       showAi(text);$("aiStatus").textContent="AI 初判完成。结果只能作为记录辅助，不能作为食用判断。";
-    }catch(err){$("aiStatus").textContent="AI 初判失败："+err.message+"。如果提示浏览器跨域或网络失败，就需要下一步加后端服务。"}
+    }catch(err){$("aiStatus").textContent="AI 初判失败："+err.message+"。如果提示跨域、图片格式不支持或网络失败，就需要下一步加后端中转服务。"}
     finally{$("aiCheck").disabled=false;$("aiCheck").textContent="开始 AI 初判"}
   }
   bindImageInput();
